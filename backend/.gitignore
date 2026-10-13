@@ -1,0 +1,22 @@
+# Environment variables (contains database passwords and secrets)
+.env
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Testing and coverage caches
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local SQLite databases (if created during quick offline testing)
+*.db
+*.sqlite3

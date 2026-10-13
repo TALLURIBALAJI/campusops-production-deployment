@@ -1,0 +1,107 @@
+# ==========================================================
+# CampusOps — Production Docker Compose Configuration
+# 4 Services: db, backend, frontend, nginx
+# ==========================================================
+
+services:
+  # --------------------------------------------------------
+  # 1. PostgreSQL Database Service (Official Image)
+  # --------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    container_name: campusops_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-campusops_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - campusops_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-campusops_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # --------------------------------------------------------
+  # 2. FastAPI Backend Service
+  # --------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: campusops_backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-campusops_db}
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      APP_NAME: ${APP_NAME:-CampusOps — Production Deployment (Python Stack)}
+      APP_ENV: ${APP_ENV:-production}
+      DEBUG: ${DEBUG:-False}
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8000
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - campusops_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # --------------------------------------------------------
+  # 3. React + TypeScript + Vite Frontend Service
+  # --------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ""
+    container_name: campusops_frontend
+    restart: unless-stopped
+    networks:
+      - campusops_network
+
+  # --------------------------------------------------------
+  # 4. Nginx Reverse Proxy (Ingress Gateway)
+  # --------------------------------------------------------
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: campusops_nginx
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    networks:
+      - campusops_network
+
+# ----------------------------------------------------------
+# Persistent Storage Volumes
+# ----------------------------------------------------------
+volumes:
+  postgres_data:
+    name: campusops_postgres_data
+
+# ----------------------------------------------------------
+# Isolated Bridge Network
+# ----------------------------------------------------------
+networks:
+  campusops_network:
+    name: campusops_bridge_network
+    driver: bridge

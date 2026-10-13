@@ -1,0 +1,39 @@
+# ==========================================================
+# CampusOps — Root .gitignore
+# ==========================================================
+
+# Environment variables & secrets (CRITICAL: Never commit .env files)
+.env
+.env.local
+.env.*.local
+*.env
+
+# Python artifacts
+backend/.venv/
+backend/venv/
+backend/ENV/
+backend/__pycache__/
+backend/*.py[cod]
+backend/*$py.class
+backend/*.so
+backend/.pytest_cache/
+backend/.coverage
+backend/htmlcov/
+backend/*.db
+backend/*.sqlite3
+
+# Node & Frontend artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.cache/
+frontend/*.log
+frontend/npm-debug.log*
+
+# Docker local overrides
+docker-compose.override.yml
+
+# Operating system files
+.DS_Store
+Thumbs.db
+desktop.ini
