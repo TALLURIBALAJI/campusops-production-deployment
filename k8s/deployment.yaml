@@ -1,0 +1,174 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: campusops-postgres-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: campusops-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: campusops-db
+  template:
+    metadata:
+      labels:
+        app: campusops-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: campusops-env
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: campusops-env
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: campusops-env
+                  key: POSTGRES_PASSWORD
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: campusops-postgres-pvc
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: campusops-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: campusops-backend
+  template:
+    metadata:
+      labels:
+        app: campusops-backend
+    spec:
+      containers:
+        - name: backend
+          image: balu1432/campusops-backend:1.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DB_HOST
+              value: "db"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: campusops-env
+                  key: POSTGRES_DB
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: campusops-env
+                  key: POSTGRES_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: campusops-env
+                  key: POSTGRES_PASSWORD
+            - name: APP_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: campusops-env
+                  key: APP_NAME
+            - name: APP_ENV
+              valueFrom:
+                secretKeyRef:
+                  name: campusops-env
+                  key: APP_ENV
+            - name: DEBUG
+              valueFrom:
+                secretKeyRef:
+                  name: campusops-env
+                  key: DEBUG
+            - name: APP_HOST
+              value: "0.0.0.0"
+            - name: APP_PORT
+              value: "8000"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: campusops-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: campusops-frontend
+  template:
+    metadata:
+      labels:
+        app: campusops-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: balu1432/campusops-frontend:1.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: campusops-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: campusops-nginx
+  template:
+    metadata:
+      labels:
+        app: campusops-nginx
+    spec:
+      containers:
+        - name: nginx
+          image: balu1432/campusops-nginx:1.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
